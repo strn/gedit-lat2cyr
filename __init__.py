@@ -35,14 +35,15 @@ class Lat2CyrAppActivatable(GObject.Object, Gedit.AppActivatable):
         GObject.Object.__init__(self)
 
     def do_activate(self):
-        self.app.add_accelerator("<Primary>1", "win.lat2cyr", None)
-        self.app.add_accelerator("<Primary>2", "win.cyr2lat", None)
-        logging.info(f"{__name__} app: plugin activated")
+        # https://docs.gtk.org/gtk4/func.accelerator_parse.html
+        self.app.add_accelerator("<Alt>Y", "win.lat2cyr", None)
+        self.app.add_accelerator("<Alt>X", "win.cyr2lat", None)
+        logging.debug(f"{__name__} app: plugin activated")
 
     def do_deactivate(self):
         self.app.remove_accelerator("win.lat2cyr", None)
         self.app.remove_accelerator("win.cyr2lat", None)
-        logging.info(f"{__name__} app: plugin deactivated")
+        logging.debug(f"{__name__} app: plugin deactivated")
 
 
 class Lat2CyrWindowActivatable(GObject.Object, Gedit.WindowActivatable):
@@ -61,13 +62,11 @@ class Lat2CyrWindowActivatable(GObject.Object, Gedit.WindowActivatable):
         action = Gio.SimpleAction(name="cyr2lat")
         action.connect('activate', lambda a, p: self.cyr2lat())
         self.window.add_action(action)
-        logging.debug(f"{__name__} win: do_activate")
 
 
     def do_deactivate(self):
         self.window.remove_action("lat2cyr")
         self.window.remove_action("cyr2lat")
-        logging.debug(f"{__name__} win: do_deactivate")
 
 
     def do_update_state(self):
@@ -81,15 +80,13 @@ class Lat2CyrWindowActivatable(GObject.Object, Gedit.WindowActivatable):
     def lat2cyr(self):
         view = self.window.get_active_view()
         if view and hasattr(view, "lat2cyr_view_activatable"):
-            view.lat2cyr_view_activatable.lat2cyr()
-            logging.debug(f"{__name__} win: lat2cyr")
+            view.lat2cyr_view_activatable.lat2cyr(view.get_buffer())
 
 
     def cyr2lat(self):
         view = self.window.get_active_view()
         if view and hasattr(view, "lat2cyr_view_activatable"):
-            view.lat2cyr_view_activatable.cyr2lat()
-            logging.debug(f"{__name__} win: cyr2lat")
+            view.lat2cyr_view_activatable.cyr2lat(view.get_buffer())
 
 
 class Lat2CyrViewActivatable(GObject.Object, Gedit.ViewActivatable):
@@ -100,17 +97,14 @@ class Lat2CyrViewActivatable(GObject.Object, Gedit.ViewActivatable):
         self.popup_handler_id = 0
         self.cyr = serbcyr.SerbCyr()
         GObject.Object.__init__(self)
-        logging.debug(f"{__name__} view: initialized")
 
 
     def do_activate(self):
-        logging.debug(f"{__name__} view: do_activate")
         self.view.lat2cyr_view_activatable = self
         self.popup_handler_id = self.view.connect('populate-popup', self.populate_popup)
 
 
     def do_deactivate(self):
-        logging.debug(f"{__name__} view: do_deactivate")
         if self.popup_handler_id != 0:
             self.view.disconnect(self.popup_handler_id)
             self.popup_handler_id = 0
@@ -118,7 +112,6 @@ class Lat2CyrViewActivatable(GObject.Object, Gedit.ViewActivatable):
 
 
     def populate_popup(self, view, popup):
-        logging.debug(f"{__name__} view: populate_popup")
         if not isinstance(popup, Gtk.MenuShell):
             return
 
@@ -126,13 +119,13 @@ class Lat2CyrViewActivatable(GObject.Object, Gedit.ViewActivatable):
         item.show()
         popup.append(item)
 
-        item = Gtk.MenuItem.new_with_mnemonic(_("_Lat To Cyr"))
+        item = Gtk.MenuItem.new_with_mnemonic(_("_Latin To Cyryllic"))
         item.set_sensitive(self.is_enabled())
         item.show()
         item.connect('activate', lambda i: self.lat2cyr(view.get_buffer()))
         popup.append(item)
 
-        item = Gtk.MenuItem.new_with_mnemonic(_('_Cyr To Lat'))
+        item = Gtk.MenuItem.new_with_mnemonic(_('_Cyrillic To Latin'))
         item.set_sensitive(self.is_enabled())
         item.show()
         item.connect('activate', lambda i: self.cyr2lat(view.get_buffer()))
@@ -154,13 +147,13 @@ class Lat2CyrViewActivatable(GObject.Object, Gedit.ViewActivatable):
 
     def do_update_state(self):
         # Called whenever the view has been updated
-        logging.debug(f"{__name__} view: do_update_state")
+        pass
 
 
     def lat2cyr(self, document):
         start, end = document.get_selection_bounds()
         text = document.get_text(start, end, False)
-        logging.debug(f"{__name__} view: lat2cyr text='{text}'")
+        #logging.debug(f"{__name__} view: lat2cyr text='{text}'")
         document.begin_user_action()
         document.delete(start, end)
         document.insert(start, self.cyr.text_to_cyrillic(text))
@@ -170,7 +163,7 @@ class Lat2CyrViewActivatable(GObject.Object, Gedit.ViewActivatable):
     def cyr2lat(self, document):
         start, end = document.get_selection_bounds()
         text = document.get_text(start, end, False)
-        logging.debug(f"{__name__} view: cyr2lat text='{text}'")
+        #logging.debug(f"{__name__} view: cyr2lat text='{text}'")
         document.begin_user_action()
         document.delete(start, end)
         document.insert(start, self.cyr.text_to_latin(text))
